@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎤 발음 연습 - English Speaking Coach v0.13</title>
+<script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Noto+Sans+KR:wght@400;700&display=swap');
+
+  :root {
+    --sky: #4FC3F7;
+    --sky-dark: #0288D1;
+    --green: #66BB6A;
+    --green-dark: #388E3C;
+    --orange: #FFA726;
+    --red: #EF5350;
+    --yellow: #FFF176;
+    --bg: #E3F2FD;
+    --card: #FFFFFF;
+    --text: #1A237E;
+    --muted: #78909C;
+    --radius: 20px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  header h1 {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--sky-dark);
+    letter-spacing: -0.5px;
+  }
+  header p {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-top: 4px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    padding: 28px;
+    width: 100%;
+    max-width: 680px;
+    margin-bottom: 20px;
+  }
+
+  /* 문장 제시 */
+  .sentence-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+  .sentence-display {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.5;
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 8px;
+  }
+  .sentence-hint {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* 문장 선택 버튼들 */
+  .sentence-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .sentence-btn {
+    background: var(--bg);
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .sentence-btn:hover { border-color: var(--sky); }
+  .sentence-btn.active { background: var(--sky); color: white; font-weight: 700; }
+
+  /* 마이크 버튼 */
+  .mic-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    margin: 10px 0;
+  }
+  .mic-btn {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 2.4rem;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--sky);
+    color: white;
+  }
+  .mic-btn:hover { transform: scale(1.07); }
+  .mic-btn.recording {
+    background: var(--red);
+    animation: pulse 1s infinite;
+  }
+  .mic-btn:disabled {
+    background: #B0BEC5;
+    cursor: not-allowed;
+    transform: none;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,83,80,0.4); }
+    50% { box-shadow: 0 0 0 14px rgba(239,83,80,0); }
+  }
+  .mic-status {
+    font-size: 0.95rem;
+    color: var(--muted);
+    font-weight: 700;
+    min-height: 24px;
+  }
+  .mic-status.active { color: var(--red); }
+
+  /* 결과 영역 */
+  .result-card {
+    display: none;
+    margin-top: 10px;
+  }
+  .result-card.show { display: block; }
+
+  .result-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  /* 점수 배지 */
+  .score-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .score-badge {
+    flex: 1;
+    min-width: 100px;
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+  }
+  .score-badge .val {
+    font-size: 1.8rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .score-badge .lbl {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .score-good { color: var(--green-dark); }
+  .score-ok { color: var(--orange); }
+  .score-bad { color: var(--red); }
+
+  /* 단어별 하이라이트 */
+  .word-result {
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 2.2;
+    padding: 12px 16px;
+    background: var(--bg);
+    border-radius: 12px;
+    margin-bottom: 14px;
+  }
+  .word {
+    display: inline-block;
+    margin: 0 3px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    cursor: default;
+    position: relative;
+  }
+  .word.good { color: var(--green-dark); }
+  .word.ok { background: #FFF9C4; color: #F57F17; }
+  .word.bad { background: #FFEBEE; color: var(--red); text-decoration: underline wavy var(--red); }
+  .word.omission { background: #FCE4EC; color: #C62828; }
+
+  /* 피드백 메시지 */
+  .feedback-box {
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .feedback-box.perfect { background: #E8F5E9; color: var(--green-dark); }
+  .feedback-box.retry { background: #FFF3E0; color: #E65100; }
+  .feedback-box .fb-icon { font-size: 1.5rem; }
+
+  /* 다시 읽기 버튼 */
+  .retry-btn {
+    margin-top: 14px;
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: inherit;
+    border: none;
+    border-radius: 12px;
+    background: var(--orange);
+    color: white;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 3px 10px rgba(255,167,38,0.35);
+  }
+  .retry-btn:hover { transform: translateY(-2px); }
+  .next-btn {
+    margin-top: 14px;
+    margin-left: 10px;
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: inherit;
+    border: none;
+    border-radius: 12px;
+    background: var(--green);
+    color: white;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 3px 10px rgba(102,187,106,0.35);
+  }
+  .next-btn:hover { transform: translateY(-2px); }
+
+  /* 로딩 */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 16px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .loading.show { display: block; }
+  .spinner {
+    display: inline-block;
+    width: 28px; height: 28px;
+    border: 4px solid #e0e0e0;
+    border-top-color: var(--sky);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 에러 */
+  .error-box {
+    display: none;
+    background: #FFEBEE;
+    border-radius: 12px;
+    padding: 14px 18px;
+    color: var(--red);
+    font-weight: 700;
+    margin-top: 10px;
+  }
+  .error-box.show { display: block; }
+
+  /* API 키 설정 (개발용) */
+  .config-section {
+    width: 100%;
+    max-width: 680px;
+    margin-bottom: 16px;
+  }
+  .config-toggle {
+    font-size: 0.8rem;
+    color: var(--muted);
+    cursor: pointer;
+    text-decoration: underline;
+    background: none;
+    border: none;
+    font-family: inherit;
+  }
+  .config-panel {
+    display: none;
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  }
+  .config-panel.show { display: block; }
+  .config-panel input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    margin-top: 6px;
+    margin-bottom: 10px;
+  }
+  .config-panel label { font-size: 0.8rem; color: var(--muted); font-weight: 700; }
+  .save-config-btn {
+    padding: 7px 18px;
+    background: var(--sky-dark);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  footer {
+    color: var(--muted);
+    font-size: 0.78rem;
+    text-align: center;
+    margin-top: 10px;
+  }
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .listen-btn {
+    padding: 10px 20px;
+    background: var(--sky);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 3px 10px rgba(79,195,247,0.35);
+  }
+  .listen-btn:hover { transform: translateY(-2px); background: var(--sky-dark); }
+  .listen-btn:disabled { background: #B0BEC5; cursor: not-allowed; transform: none; }
+  .voice-select {
+    padding: 8px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text);
+    background: white;
+    cursor: pointer;
+  }
+  .voice-select:focus { border-color: var(--sky); outline: none; }
+
+
+    margin-top: 12px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1.5px solid #e0e0e0;
+  }
+  .detail-label {
+    background: #F5F5F5;
+    padding: 8px 14px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .detail-item {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    border-top: 1px solid #f0f0f0;
+  }
+  .omission-detail { background: #FFEBEE; color: #C62828; }
+  .pronunciation-detail { background: #FFF3E0; color: #E65100; }
+  .intonation-detail { background: #FFFDE7; color: #F57F17; }
+
+  /* 단어 색깔 — 3가지 구분 */
+  .word.omission { background: #FFCDD2; color: #C62828; font-weight: 900; }
+  .word.bad-pron { background: #FFE0B2; color: #E65100; text-decoration: underline wavy #E65100; }
+  .word.bad-intonation { background: #FFF9C4; color: #F57F17; }
+
+
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: white;
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+  }
+  .modal-box h2 { font-size: 1.3rem; color: var(--text); margin-bottom: 8px; }
+  .modal-box p { font-size: 0.88rem; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+  .modal-box input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    margin-bottom: 14px;
+  }
+  .modal-box input:focus { border-color: var(--sky); outline: none; }
+  .modal-confirm-btn {
+    width: 100%;
+    padding: 13px;
+    background: var(--sky-dark);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .modal-confirm-btn:hover { background: #0277BD; }
+  .modal-error { color: var(--red); font-size: 0.82rem; margin-top: -8px; margin-bottom: 10px; display: none; }
+  .modal-error.show { display: block; }
+
+
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .compare-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .compare-icon {
+    font-size: 1.1rem;
+    min-width: 28px;
+    padding-top: 2px;
+  }
+  .compare-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    min-width: 72px;
+    padding-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .compare-text {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.8;
+    flex: 1;
+  }
+  .compare-divider {
+    border: none;
+    border-top: 1.5px dashed #CFD8DC;
+    margin: 2px 0;
+  }
+
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎤 English Speaking Coach</h1>
+  <p>발음을 듣고 피드백을 드릴게요! — Prototype v0.13</p>
+</header>
+
+<!-- API 설정 (개발용) -->
+<div class="config-section">
+  <button class="config-toggle" onclick="toggleConfig()">⚙️ API 설정 (개발자용)</button>
+  <div class="config-panel" id="configPanel">
+    <label>Azure Speech API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="Azure Speech API Key">
+    <label>지역 (Region)</label>
+    <input type="text" id="regionInput" placeholder="koreacentral" value="koreacentral">
+    <label>OpenAI API Key (Whisper 발화 인식용)</label>
+    <input type="password" id="openaiKeyInput" placeholder="sk-proj-...">
+    <button class="save-config-btn" onclick="saveConfig()">저장</button>
+    <span id="configStatus" style="margin-left:10px;font-size:0.8rem;color:var(--green-dark);"></span>
+  </div>
+</div>
+
+<!-- 최초 실행 키 설정 모달 -->
+<div class="modal-overlay" id="setupModal">
+  <div class="modal-box">
+    <h2>⚙️ API 키 설정</h2>
+    <p>처음 한 번만 입력하면 됩니다.<br>입력한 키는 이 브라우저에만 저장되며 외부로 전송되지 않습니다.</p>
+    <input type="password" id="modalKeyInput" placeholder="Azure Speech API Key">
+    <input type="password" id="modalOpenaiKeyInput" placeholder="OpenAI API Key (Whisper 발화인식용)" style="margin-top:8px;">
+    <div class="modal-error" id="modalError">Azure API 키를 입력해주세요.</div>
+    <button class="modal-confirm-btn" onclick="saveModalKey()">저장하고 시작하기</button>
+  </div>
+</div>
+
+<!-- 메인 카드 -->
+<div class="card">
+  <!-- 문장 선택 -->
+  <div class="sentence-label">연습할 문장 선택</div>
+  <div class="sentence-picker" id="sentencePicker"></div>
+
+  <!-- 현재 문장 표시 -->
+  <div class="sentence-label" style="margin-top:8px;">읽을 문장</div>
+  <div class="sentence-display" id="sentenceDisplay">—</div>
+  <div class="sentence-hint" id="sentenceHint"></div>
+
+  <!-- 듣기 버튼 + 목소리 선택 -->
+  <div class="listen-area">
+    <button class="listen-btn" id="listenBtn" onclick="speakSentence()">
+      🔊 원어민 발음 듣기
+    </button>
+    <select class="voice-select" id="voiceSelect" onchange="saveVoice()">
+      <option value="en-US-JennyNeural">👩 Jenny (여성 원어민)</option>
+      <option value="en-US-GuyNeural">👨 Guy (남성 원어민)</option>
+      <option value="en-US-AnaNeural">👧 Ana (어린이)</option>
+    </select>
+  </div>
+
+  <!-- 마이크 -->
+  <div class="mic-area">
+    <button class="mic-btn" id="micBtn" onclick="toggleRecording()">🎤</button>
+    <div class="mic-status" id="micStatus">버튼을 눌러 말하세요</div>
+  </div>
+
+  <!-- 로딩 -->
+  <div class="loading" id="loadingBox">
+    <span class="spinner"></span> AI가 발음을 분석하고 있어요...
+  </div>
+
+  <!-- 에러 -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- 결과 -->
+  <div class="result-card" id="resultCard">
+    <div class="result-label">분석 결과</div>
+
+    <div class="score-row" id="scoreRow"></div>
+
+    <!-- 문장 비교 -->
+    <div class="result-label">문장 비교</div>
+    <div class="compare-box">
+      <div class="compare-row">
+        <span class="compare-icon">📖</span>
+        <span class="compare-label">읽을 문장</span>
+        <div class="compare-text" id="referenceWordDisplay"></div>
+      </div>
+      <hr class="compare-divider">
+      <div class="compare-row">
+        <span class="compare-icon">🎤</span>
+        <span class="compare-label">내가 말한 것</span>
+        <div class="compare-text" id="spokenWordDisplay"></div>
+      </div>
+    </div>
+
+    <div class="feedback-box" id="feedbackBox">
+      <span class="fb-icon"></span>
+      <span id="feedbackText"></span>
+    </div>
+
+    <!-- 상세 피드백 (강사용) -->
+    <div class="detail-feedback" id="detailFeedback" style="display:none;">
+      <div class="detail-label">📋 상세 피드백</div>
+      <div id="detailOmission" class="detail-item omission-detail" style="display:none;"></div>
+      <div id="detailPronunciation" class="detail-item pronunciation-detail" style="display:none;"></div>
+      <div id="detailIntonation" class="detail-item intonation-detail" style="display:none;"></div>
+    </div>
+
+    <div>
+      <button class="retry-btn" onclick="resetResult()">🔄 다시 읽기</button>
+      <button class="next-btn" id="nextBtn" onclick="nextSentence()" style="display:none;">다음 문장 ➜</button>
+    </div>
+  </div>
+</div>
+
+<footer>Azure Cognitive Services Pronunciation Assessment · Korea Central · Prototype v0.13</footer>
+
+<script>
+// ── 설정 ──────────────────────────────────────────────
+let AZURE_KEY = localStorage.getItem('azure_key') || '';
+let AZURE_REGION = localStorage.getItem('azure_region') || 'koreacentral';
+let OPENAI_KEY = localStorage.getItem('openai_key') || '';
+let ENGLISH_VOICE = localStorage.getItem('english_voice') || 'en-US-JennyNeural';
+
+// 키가 이미 있으면 미리 채워두기
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('apiKeyInput').value = AZURE_KEY;
+  document.getElementById('regionInput').value = AZURE_REGION;
+  document.getElementById('openaiKeyInput').value = OPENAI_KEY;
+  document.getElementById('voiceSelect').value = ENGLISH_VOICE;
+  if (AZURE_KEY) document.getElementById('configStatus').textContent = '✅ 키 저장됨';
+});
+
+function saveVoice() {
+  ENGLISH_VOICE = document.getElementById('voiceSelect').value;
+  localStorage.setItem('english_voice', ENGLISH_VOICE);
+}
+
+function toggleConfig() {
+  document.getElementById('configPanel').classList.toggle('show');
+}
+function saveConfig() {
+  AZURE_KEY = document.getElementById('apiKeyInput').value.trim();
+  AZURE_REGION = document.getElementById('regionInput').value.trim() || 'koreacentral';
+  OPENAI_KEY = document.getElementById('openaiKeyInput').value.trim();
+  localStorage.setItem('azure_key', AZURE_KEY);
+  localStorage.setItem('azure_region', AZURE_REGION);
+  localStorage.setItem('openai_key', OPENAI_KEY);
+  document.getElementById('configStatus').textContent = '✅ 저장 완료';
+}
+
+// ── 연습 문장 목록 ───────────────────────────────────
+const SENTENCES = [
+  { text: "Hello, my name is Tom.", hint: "안녕하세요, 제 이름은 Tom이에요." },
+  { text: "I like cats and dogs.", hint: "나는 고양이와 개를 좋아해요." },
+  { text: "The sun is very bright today.", hint: "오늘 태양이 매우 밝아요." },
+  { text: "She is reading a book.", hint: "그녀는 책을 읽고 있어요." },
+  { text: "We go to school every day.", hint: "우리는 매일 학교에 가요." },
+  { text: "The apple is red and sweet.", hint: "사과는 빨갛고 달콤해요." },
+];
+
+let currentIdx = 0;
+let isRecording = false;
+let currentRecognizer = null;
+let mediaRecorder = null;
+let audioChunks = [];
+
+// ── 초기화 ───────────────────────────────────────────
+function init() {
+  const picker = document.getElementById('sentencePicker');
+  SENTENCES.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'sentence-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = `${i + 1}번`;
+    btn.onclick = () => selectSentence(i);
+    picker.appendChild(btn);
+  });
+  selectSentence(0);
+}
+
+function selectSentence(idx) {
+  currentIdx = idx;
+  document.querySelectorAll('.sentence-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+  document.getElementById('sentenceDisplay').textContent = SENTENCES[idx].text;
+  document.getElementById('sentenceHint').textContent = SENTENCES[idx].hint;
+  resetResult();
+}
+
+function nextSentence() {
+  const next = (currentIdx + 1) % SENTENCES.length;
+  selectSentence(next);
+}
+
+// ── 녹음 (Azure Speech SDK) ──────────────────────────
+async function toggleRecording() {
+  if (isRecording) {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+}
+
+async function startRecording() {
+  if (!AZURE_KEY) {
+    showError('⚙️ API 설정에서 Azure 키를 먼저 입력해주세요.');
+    document.getElementById('configPanel').classList.add('show');
+    return;
+  }
+  if (!window.SpeechSDK) {
+    showError('Speech SDK 로드 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  try {
+    // 마이크 스트림 획득
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    // MediaRecorder로 Whisper용 오디오 캡처 시작
+    audioChunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus' : 'audio/webm';
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.start(100);
+
+    isRecording = true;
+    document.getElementById('micBtn').classList.add('recording');
+    document.getElementById('micBtn').textContent = '⏹';
+    document.getElementById('micStatus').textContent = '녹음 중... 말하고 나서 버튼을 누르세요';
+    document.getElementById('micStatus').classList.add('active');
+    hideError();
+    document.getElementById('resultCard').classList.remove('show');
+
+    const referenceText = SENTENCES[currentIdx].text;
+
+    // Azure SDK 인식 시작 (스트림 공유)
+    const azureResult = await startSDKRecognition(referenceText, stream);
+
+    // MediaRecorder 중지 후 Whisper 처리
+    document.getElementById('loadingBox').classList.add('show');
+    const whisperText = await stopMediaRecorderAndTranscribe(stream);
+
+    // 두 결과 합쳐서 표시
+    showResult(azureResult, referenceText, whisperText);
+
+  } catch (e) {
+    if (e.message !== 'CANCELLED') {
+      showError('분석 중 오류가 발생했어요: ' + e.message);
+    }
+  } finally {
+    isRecording = false;
+    document.getElementById('micBtn').classList.remove('recording');
+    document.getElementById('micBtn').textContent = '🎤';
+    document.getElementById('micBtn').disabled = false;
+    document.getElementById('micStatus').textContent = '버튼을 눌러 말하세요';
+    document.getElementById('micStatus').classList.remove('active');
+    document.getElementById('loadingBox').classList.remove('show');
+    currentRecognizer = null;
+  }
+}
+
+function stopRecording() {
+  document.getElementById('micStatus').textContent = '분석 중...';
+  if (currentRecognizer) {
+    currentRecognizer.stopContinuousRecognitionAsync();
+  }
+}
+
+// MediaRecorder 중지 + Whisper STT 호출
+function stopMediaRecorderAndTranscribe(stream) {
+  return new Promise((resolve) => {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+      stream.getTracks().forEach(t => t.stop());
+      resolve('');
+      return;
+    }
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      if (!OPENAI_KEY) { resolve(''); return; }
+      try {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('file', blob, 'audio.webm');
+        formData.append('model', 'whisper-1');
+        formData.append('language', 'en');
+
+        const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
+          body: formData
+        });
+        if (!res.ok) { resolve(''); return; }
+        const data = await res.json();
+        resolve(data.text || '');
+      } catch (e) {
+        console.warn('Whisper 오류:', e);
+        resolve('');
+      }
+    };
+    mediaRecorder.stop();
+  });
+}
+
+function startSDKRecognition(referenceText, stream) {
+  return new Promise((resolve, reject) => {
+    const SpeechSDK = window.SpeechSDK;
+    const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(AZURE_KEY, AZURE_REGION);
+    speechConfig.speechRecognitionLanguage = 'en-US';
+
+    const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+    const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
+    currentRecognizer = recognizer;
+
+    const pronunciationConfig = new SpeechSDK.PronunciationAssessmentConfig(
+      referenceText,
+      SpeechSDK.PronunciationAssessmentGradingSystem.HundredMark,
+      SpeechSDK.PronunciationAssessmentGranularity.Phoneme,
+      true
+    );
+    pronunciationConfig.applyTo(recognizer);
+
+    recognizer.recognized = (s, e) => {
+      if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
+        const paResult = SpeechSDK.PronunciationAssessmentResult.fromResult(e.result);
+        const raw = paResult.privPronJson;
+        const spokenWords = raw?.Words || [];
+
+        const fakeNBest = {
+          NBest: [{
+            PronunciationAssessment: {
+              AccuracyScore: paResult.accuracyScore,
+              FluencyScore: paResult.fluencyScore,
+              CompletenessScore: paResult.completenessScore,
+              PronScore: paResult.pronunciationScore,
+            },
+            Words: spokenWords.map(w => ({
+              Word: w.Word,
+              PronunciationAssessment: {
+                AccuracyScore: w.PronunciationAssessment?.AccuracyScore ?? 100,
+                ErrorType: w.PronunciationAssessment?.ErrorType ?? 'None',
+              }
+            }))
+          }]
+        };
+        recognizer.stopContinuousRecognitionAsync(() => {
+          recognizer.close();
+          resolve(fakeNBest);
+        });
+      }
+    };
+
+    recognizer.canceled = (s, e) => {
+      recognizer.close();
+      if (e.reason === SpeechSDK.CancellationReason.Error) {
+        reject(new Error('Azure 오류: ' + e.errorDetails));
+      } else {
+        reject(new Error('CANCELLED'));
+      }
+    };
+
+    recognizer.startContinuousRecognitionAsync(
+      () => {},
+      err => { recognizer.close(); reject(new Error(err)); }
+    );
+  });
+}
+
+
+// ── 문장 듣기 (영어 원어민 TTS) ─────────────────────
+async function speakSentence() {
+  const sentence = SENTENCES[currentIdx].text;
+  const btn = document.getElementById('listenBtn');
+  btn.disabled = true;
+  btn.textContent = '🔊 재생 중...';
+  try {
+    await speakEnglish(sentence, ENGLISH_VOICE);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔊 원어민 발음 듣기';
+  }
+}
+
+async function speakEnglish(text, voice = 'en-US-JennyNeural') {
+  try {
+    const ssml = `<speak version='1.0' xml:lang='en-US'>
+      <voice name='${voice}'>
+        <prosody rate='0.9'>${text}</prosody>
+      </voice>
+    </speak>`;
+    const url = `https://${AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Ocp-Apim-Subscription-Key': AZURE_KEY,
+        'Content-Type': 'application/ssml+xml',
+        'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+      },
+      body: ssml
+    });
+    if (!response.ok) return;
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    await audio.play();
+    return new Promise(resolve => { audio.onended = resolve; });
+  } catch (e) {
+    console.warn('영어 TTS 오류:', e.message);
+  }
+}
+
+// ── Azure TTS (한국어+영어 혼합 음성 피드백) ───────────
+// 텍스트에서 영어 단어를 감지해서 SSML lang 태그로 분리
+function buildMixedSSML(text) {
+  // 영어 단어/구문을 감지 (연속된 영어 단어, 쉼표 포함)
+  const parts = text.split(/(\b[a-zA-Z][a-zA-Z\s,'-]*[a-zA-Z]\b|\b[a-zA-Z]\b)/g);
+  const ssmlParts = parts.map(part => {
+    if (/^[a-zA-Z][a-zA-Z\s,'-]*$/.test(part.trim()) && part.trim().length > 0) {
+      return `<lang xml:lang='en-US'>${part.trim()}</lang>`;
+    }
+    return part;
+  }).join('');
+
+  return `<speak version='1.0' xml:lang='ko-KR'>
+    <voice xml:lang='ko-KR' name='ko-KR-YuJinNeural'>
+      ${ssmlParts}
+    </voice>
+  </speak>`;
+}
+
+async function speakFeedback(text) {
+  try {
+    const ssml = buildMixedSSML(text);
+    const url = `https://${AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Ocp-Apim-Subscription-Key': AZURE_KEY,
+        'Content-Type': 'application/ssml+xml',
+        'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+      },
+      body: ssml
+    });
+
+    if (!response.ok) return;
+
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    audio.play();
+  } catch (e) {
+    console.warn('TTS 오류 (무시):', e.message);
+  }
+}
+
+// 구버전 호환용 alias
+const speakKorean = speakFeedback;
+
+
+// ── 결과 표시 ────────────────────────────────────────
+function showResult(data, referenceText, whisperText = '') {
+  const card = document.getElementById('resultCard');
+  card.classList.add('show');
+
+  // NBest 결과 추출
+  const nbest = data.NBest && data.NBest[0];
+  if (!nbest || !nbest.PronunciationAssessment) {
+    showError('발음을 인식하지 못했어요. 마이크에 가까이 대고 다시 말해보세요! 🎤');
+    card.classList.remove('show');
+    speakKorean('잘 들리지 않았어요. 마이크에 가까이 대고 다시 말해봐요!');
+    return;
+  }
+
+  const pa = nbest.PronunciationAssessment;
+  const accuracyScore = Math.round(pa.AccuracyScore || 0);
+  const fluencyScore = Math.round(pa.FluencyScore || 0);
+  const prosodyScore = Math.round(pa.ProsodyScore || fluencyScore); // ProsodyScore 없으면 FluencyScore 대체
+  const completenessScore = Math.round(pa.CompletenessScore || 0);
+
+  // 단어별 결과 + 비교 표시 (점수 배지는 omissionCount 계산 후 업데이트)
+  const azureWords = nbest.Words || [];
+  const badWords = [];
+  const badWordSet = new Set();
+
+  // Whisper 결과로 실제 발화 단어 목록 생성
+  const whisperWords = whisperText
+    ? whisperText.replace(/[.,!?']/g, '').toLowerCase().split(/\s+/).filter(Boolean)
+    : null;
+
+  // 원문 단어 목록
+  const referenceWords = referenceText.replace(/[.,!?']/g, '').toLowerCase().split(/\s+/);
+
+  // Azure 단어 점수 맵
+  const azureWordMap = new Map(azureWords.map(w => [w.Word.toLowerCase(), w]));
+
+  // Whisper 기반 생략 감지 (순서 고려한 비교)
+  let omissionCount = 0;
+  const finalWords = referenceWords.map(refWord => {
+    // Whisper 있으면 Whisper 기반, 없으면 Azure 기반
+    const isOmitted = whisperWords
+      ? !whisperWords.includes(refWord)
+      : false;
+
+    if (isOmitted) {
+      omissionCount++;
+      badWordSet.add(refWord);
+      badWords.push({ word: refWord, type: 'omission' });
+      return { Word: refWord, errorType: 'Omission', score: 0 };
+    } else {
+      const azureWord = azureWordMap.get(refWord);
+      const score = azureWord?.PronunciationAssessment?.AccuracyScore ?? 100;
+      const errorType = azureWord?.PronunciationAssessment?.ErrorType ?? 'None';
+      if (errorType === 'Mispronunciation' || score < 60) {
+        badWordSet.add(refWord);
+        badWords.push({ word: refWord, type: 'bad' });
+      } else if (score < 80) {
+        badWordSet.add(refWord);
+        badWords.push({ word: refWord, type: 'ok' });
+      }
+      return { Word: azureWord?.Word || refWord, errorType, score };
+    }
+  });
+
+  // 3가지 점수 계산
+  const completionScore = Math.round(Math.max(0, 100 - (omissionCount / referenceWords.length) * 100));
+  const pronScore = accuracyScore;
+  const intonationScore = prosodyScore;
+  const totalScore = Math.round(completionScore * 0.4 + pronScore * 0.4 + intonationScore * 0.2);
+  const adjustedScore = totalScore;
+
+  // 📖 원문 하이라이트 (3가지 색깔 구분)
+  const omissionWords = [];
+  const badPronWords = [];
+  const badIntonationWords = [];
+
+  const refHtml = finalWords.map(w => {
+    let cls = 'good';
+    let title = `발음: ${w.score}점`;
+
+    if (w.errorType === 'Omission') {
+      cls = 'omission';
+      title = '⚠️ 빠진 단어!';
+      omissionWords.push(w.Word);
+    } else if (w.errorType === 'Mispronunciation' || w.score < 60) {
+      cls = 'bad-pron';
+      title = `🔴 발음 교정 필요 (${w.score}점)`;
+      badPronWords.push(w.Word);
+    } else if (w.score < 80) {
+      cls = 'bad-intonation';
+      title = `🟡 억양/발음 개선 (${w.score}점)`;
+      badIntonationWords.push(w.Word);
+    }
+    return `<span class="word ${cls}" title="${title}">${w.Word}</span>`;
+  }).join(' ');
+  document.getElementById('referenceWordDisplay').innerHTML = refHtml;
+
+  // 🎤 아이가 말한 것
+  const spokenDisplay = whisperText || azureWords.map(w => w.Word).join(' ');
+  const spokenWordsArr = spokenDisplay.replace(/[.,!?']/g, '').split(/\s+/).filter(Boolean);
+  const spokenHtml = spokenWordsArr.map(w => {
+    const inRef = referenceWords.includes(w.toLowerCase());
+    return inRef
+      ? `<span class="word good">${w}</span>`
+      : `<span class="word ok" title="원문에 없는 단어">${w}</span>`;
+  }).join(' ');
+  document.getElementById('spokenWordDisplay').innerHTML = spokenHtml || '(인식된 내용 없음)';
+
+  // 점수 배지
+  const scoreRow = document.getElementById('scoreRow');
+  scoreRow.innerHTML = '';
+  const scores = [
+    { label: '종합 점수', val: totalScore },
+    { label: '정확도', val: completionScore },
+    { label: '발음', val: pronScore },
+    { label: '억양', val: intonationScore },
+  ];
+  scores.forEach(s => {
+    const cls = s.val >= 80 ? 'score-good' : s.val >= 60 ? 'score-ok' : 'score-bad';
+    scoreRow.innerHTML += `
+      <div class="score-badge">
+        <div class="val ${cls}">${s.val}</div>
+        <div class="lbl">${s.label}</div>
+      </div>`;
+  });
+
+  // 상세 피드백 (강사용)
+  const detailFeedback = document.getElementById('detailFeedback');
+  const detailOmission = document.getElementById('detailOmission');
+  const detailPron = document.getElementById('detailPronunciation');
+  const detailIntonation = document.getElementById('detailIntonation');
+
+  let hasDetail = false;
+  if (omissionWords.length > 0) {
+    detailOmission.innerHTML = `⚠️ <b>빠진 단어:</b> ${omissionWords.join(', ')} — 단어를 빠뜨리지 않고 읽도록 지도해주세요.`;
+    detailOmission.style.display = 'flex';
+    hasDetail = true;
+  } else { detailOmission.style.display = 'none'; }
+
+  if (badPronWords.length > 0) {
+    detailPron.innerHTML = `🔴 <b>발음 교정:</b> ${badPronWords.join(', ')} — 해당 단어의 발음을 다시 연습해주세요.`;
+    detailPron.style.display = 'flex';
+    hasDetail = true;
+  } else { detailPron.style.display = 'none'; }
+
+  if (badIntonationWords.length > 0) {
+    detailIntonation.innerHTML = `🟡 <b>억양 개선:</b> ${badIntonationWords.join(', ')} — 좀 더 자연스럽게 강세를 넣어 읽도록 해주세요.`;
+    detailIntonation.style.display = 'flex';
+    hasDetail = true;
+  } else { detailIntonation.style.display = 'none'; }
+
+  detailFeedback.style.display = hasDetail ? 'block' : 'none';
+
+  // 피드백 메시지 + 한국어 음성
+  const fb = document.getElementById('feedbackBox');
+  const fbText = document.getElementById('feedbackText');
+  const nextBtn = document.getElementById('nextBtn');
+
+  let voiceMsg = '';
+
+  if (omissionCount > 0) {
+    fb.className = 'feedback-box retry';
+    fb.querySelector('.fb-icon').textContent = '⚠️';
+    const omittedList = finalWords.filter(w => w.errorType === 'Omission').map(w => w.Word).join(', ');
+    fbText.textContent = `"${omittedList}" 단어를 빠뜨렸어요! 다시 읽어봐요. (${adjustedScore}점)`;
+    voiceMsg = `${omittedList}, 이 단어를 빠뜨렸어요! 처음부터 다시 읽어봐요!`;
+    nextBtn.style.display = 'none';
+  } else if (adjustedScore >= 85) {
+    fb.className = 'feedback-box perfect';
+    fb.querySelector('.fb-icon').textContent = '🌟';
+    fbText.textContent = `완벽해요! 정말 잘했어요! 종합 점수 ${adjustedScore}점!`;
+    nextBtn.style.display = 'inline-block';
+    voiceMsg = `완벽해요! 정말 잘했어요! ${adjustedScore}점이에요. 다음 문장으로 가볼까요?`;
+  } else if (adjustedScore >= 65) {
+    fb.className = 'feedback-box retry';
+    fb.querySelector('.fb-icon').textContent = '👍';
+    nextBtn.style.display = 'none';
+    if (badWords.length > 0) {
+      const targets = badWords.slice(0, 2).map(w => w.word).join(', ');
+      fbText.textContent = `잘하고 있어요! "${targets}" 부분을 다시 읽어봐요. (${adjustedScore}점)`;
+      voiceMsg = `잘하고 있어요! ${targets}, 이 부분을 다시 읽어봐요!`;
+    } else {
+      fbText.textContent = `잘하고 있어요! 한 번 더 읽어봐요. (${adjustedScore}점)`;
+      voiceMsg = `잘하고 있어요! 한 번 더 읽어봐요!`;
+    }
+  } else {
+    fb.className = 'feedback-box retry';
+    fb.querySelector('.fb-icon').textContent = '💪';
+    nextBtn.style.display = 'none';
+    if (badWords.length > 0) {
+      const targets = badWords.slice(0, 2).map(w => w.word).join(', ');
+      fbText.textContent = `${targets} 부분을 천천히 다시 읽어봐요! (${adjustedScore}점)`;
+      voiceMsg = `${targets}, 이 부분을 천천히 다시 읽어봐요!`;
+    } else {
+      fbText.textContent = `천천히 다시 읽어봐요! (${adjustedScore}점)`;
+      voiceMsg = `천천히 다시 읽어봐요!`;
+    }
+  }
+
+  // 한국어 피드백 음성 먼저
+  speakFeedback(voiceMsg);
+
+  // 발음 틀린 단어 있으면 1초 후 원어민 발음으로 시범
+  if (badPronWords.length > 0) {
+    setTimeout(() => {
+      speakEnglish(badPronWords.slice(0, 2).join(', '), ENGLISH_VOICE);
+    }, 2500);
+  }
+}
+
+function resetResult() {
+  document.getElementById('resultCard').classList.remove('show');
+  hideError();
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = msg;
+  box.classList.add('show');
+}
+function hideError() {
+  document.getElementById('errorBox').classList.remove('show');
+}
+
+// 최초 실행 시 키 없으면 모달 표시
+function checkAndShowSetup() {
+  if (!AZURE_KEY) {
+    document.getElementById('setupModal').classList.add('show');
+  }
+}
+
+function saveModalKey() {
+  const azureKey = document.getElementById('modalKeyInput').value.trim();
+  if (!azureKey) {
+    document.getElementById('modalError').classList.add('show');
+    return;
+  }
+  document.getElementById('modalError').classList.remove('show');
+  AZURE_KEY = azureKey;
+  localStorage.setItem('azure_key', azureKey);
+
+  const openaiKey = document.getElementById('modalOpenaiKeyInput')?.value.trim();
+  if (openaiKey) {
+    OPENAI_KEY = openaiKey;
+    localStorage.setItem('openai_key', openaiKey);
+  }
+
+  document.getElementById('setupModal').classList.remove('show');
+}
+
+// 앱 시작 + 저장된 키 자동 로드
+init();
+checkAndShowSetup();
+</script>
+</body>
+</html>
